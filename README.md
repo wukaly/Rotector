@@ -1,6 +1,6 @@
 # ⚠️ THIS IS AI SLOP ⚠️
 
-This repo was made to detect when AI is being used in Roblox Studio projects. All text below this section was AI generated.
+This repo was made to detect when AI is being used in Roblox Studio projects. The README.md, index.html and VersionDiff.luau was AI generated.
 
 # Rotector
 
