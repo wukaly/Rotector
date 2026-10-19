@@ -1,6 +1,6 @@
 # ⚠️ THIS IS AI SLOP ⚠️
 
-# Script Pace Review
+# Rotector
 
 Flags Roblox scripts that appeared unusually fast in a place's version history, so reviewers know which saves to look at. It can't prove code was AI-generated. It points to saves worth opening.
 
