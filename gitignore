@@ -4,3 +4,4 @@ lune.exe
 *.rbxl
 *.rbxlx
 .env
+.vscode
