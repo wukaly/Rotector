@@ -1,5 +1,7 @@
 # ⚠️ THIS IS AI SLOP ⚠️
 
+This repo was made to detect when AI is being used in Roblox Studio projects. The README.md, index.html and VersionDiff.luau was AI generated.
+
 # Rotector
 
 Flags Roblox scripts that appeared unusually fast in a place's version history, so reviewers know which saves to look at. It can't prove code was AI-generated. It points to saves worth opening.
