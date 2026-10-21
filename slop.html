@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<title>Rotector</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working review desk — controls rail on top, timeline band, then a dense ranked table. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --sunken: #e9edf3;
+  --line: #d5dbe5;
+  --fg: #16202e;
+  --muted: #5b6678;
+  --accent: #2f55d4;
+  --accent-soft: #e2e9fd;
+  --add: #18794e;
+  --remove: #c0392b;
+  --high: #c2410c;
+  --high-soft: #fde7da;
+  --review: #a16207;
+  --review-soft: #fbf0cf;
+  --normal: #94a0b2;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141c; --surface: #171e29; --sunken: #1e2733; --line: #2b3646;
+    --fg: #e4e9f1; --muted: #93a0b4; --accent: #7b9bff; --accent-soft: #1f2b4d;
+    --add: #4cc38a; --remove: #f07167; --high: #fb8c4f; --high-soft: #3a2216;
+    --review: #e0b341; --review-soft: #352c12; --normal: #5d6a7e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141c; --surface: #171e29; --sunken: #1e2733; --line: #2b3646;
+  --fg: #e4e9f1; --muted: #93a0b4; --accent: #7b9bff; --accent-soft: #1f2b4d;
+  --add: #4cc38a; --remove: #f07167; --high: #fb8c4f; --high-soft: #3a2216;
+  --review: #e0b341; --review-soft: #352c12; --normal: #5d6a7e; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+}
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.1; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.15rem; margin: 0; }
+.label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.loader { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn {
+  font: inherit; font-weight: 600; font-size: 0.9rem; cursor: pointer; border-radius: 8px;
+  padding: 8px 14px; border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn:focus-visible, input:focus-visible, select:focus-visible, .bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.source { font-size: 0.85rem; color: var(--muted); }
+.error { color: var(--remove); font-size: 0.9rem; }
+
+.drop {
+  border: 1.5px dashed var(--line); border-radius: 10px; padding: 14px 16px; color: var(--muted); font-size: 0.9rem;
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between;
+}
+.drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--fg); }
+
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.stat { background: var(--surface); padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+.stat .value { font-family: var(--font-mono); font-size: 1.45rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat.high .value { color: var(--high); }
+.stat.review .value { color: var(--review); }
+
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px 22px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.checks { display: flex; flex-direction: column; gap: 6px; }
+.checks label { display: flex; gap: 8px; align-items: center; font-size: 0.92rem; cursor: pointer; }
+input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+input[type="text"], input[type="search"], input[type="number"], select {
+  font: inherit; font-size: 0.9rem; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--fg); width: 100%; min-width: 0;
+}
+input[type="number"] { font-family: var(--font-mono); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: 0.8rem; color: var(--muted); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.82rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.chart-box { overflow-x: auto; }
+#chart { display: block; }
+#chart text { fill: var(--muted); font-family: var(--font-mono); font-size: 11px; }
+#chart .grid { stroke: var(--line); stroke-width: 1; }
+#chart .bar { cursor: pointer; }
+#chart .bar:hover rect, #chart .bar.active rect { opacity: 0.75; }
+.tip { font-size: 0.85rem; color: var(--muted); min-height: 1.4em; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--fg); }
+.chip button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font: inherit; padding: 0 6px; border-radius: 999px; }
+
+.table-box { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 820px; }
+th { text-align: left; font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th.num, td.num { text-align: right; }
+td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr.lvl-high td:first-child { box-shadow: inset 3px 0 0 var(--high); }
+tr.lvl-review td:first-child { box-shadow: inset 3px 0 0 var(--review); }
+.pill { display: inline-block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.high { background: var(--high-soft); color: var(--high); }
+.pill.review { background: var(--review-soft); color: var(--review); }
+.pill.normal { background: var(--sunken); color: var(--muted); }
+.script-name { font-weight: 600; background: none; border: 0; padding: 0; color: var(--fg); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+.script-name:hover { color: var(--accent); text-decoration: underline; }
+.script-path { display: block; font-family: var(--font-mono); font-size: 0.76rem; color: var(--muted); word-break: break-all; }
+.add { color: var(--add); }
+.rem { color: var(--remove); }
+.reasons { display: flex; flex-wrap: wrap; gap: 4px; }
+.reason { font-size: 0.76rem; padding: 1px 7px; border-radius: 5px; background: var(--sunken); color: var(--fg); white-space: nowrap; }
+.empty { padding: 28px 10px; text-align: center; color: var(--muted); }
+.notes { font-size: 0.86rem; color: var(--muted); max-width: 75ch; display: flex; flex-direction: column; gap: 6px; }
+.notes p { margin: 0; }
+@media (prefers-reduced-motion: no-preference) { #chart rect { transition: opacity 0.12s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Rotector</h1>
+      <p class="lede">Load a <span class="mono">ScriptChanges.json</span> from VersionDiff to see how fast code appeared in each save. Flags point to saves worth opening, not proof of anything.</p>
+    </div>
+    <div class="loader">
+      <input type="file" id="fileInput" accept=".json,application/json" hidden>
+      <button class="btn primary" id="openFile" type="button">Open report</button>
+    </div>
+  </header>
+
+  <div class="drop" id="drop">
+    <span>Drop a report file here, or paste its contents anywhere on the page.</span>
+    <span class="source" id="sourceLabel"></span>
+  </div>
+  <div class="error" id="error" hidden></div>
+
+  <section class="summary" id="summary" aria-label="Summary"></section>
+
+  <section class="controls" aria-label="Filters">
+    <div class="field">
+      <span class="label">Hide</span>
+      <div class="checks">
+        <label><input type="checkbox" id="hideImport" checked> Bulk imports (40+ scripts added in one save)</label>
+        <label><input type="checkbox" id="hidePackages" checked> Packages and Roblox defaults</label>
+        <label><input type="checkbox" id="hideRemoved" checked> Deleted scripts</label>
+        <label><input type="checkbox" id="flaggedOnly" checked> Unflagged changes</label>
+      </div>
+    </div>
+    <div class="field">
+      <label class="label" for="patterns">Ignore paths containing</label>
+      <input type="text" id="patterns" spellcheck="false">
+      <span class="hint">Comma-separated. Applies when packages are hidden.</span>
+    </div>
+    <div class="field">
+      <span class="label">Flag when</span>
+      <div class="pair">
+        <div class="field">
+          <label class="hint" for="blockThreshold">One block of at least</label>
+          <input type="number" id="blockThreshold" min="5" step="5" value="80">
+        </div>
+        <div class="field">
+          <label class="hint" for="rateThreshold">Lines per minute of at least</label>
+          <input type="number" id="rateThreshold" min="1" step="1" value="20">
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="label" for="search">Find script</label>
+      <input type="search" id="search" placeholder="Name or path" spellcheck="false">
+      <label class="label" for="author">Saved by</label>
+      <select id="author"></select>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Activity over time">
+    <div class="panel-head">
+      <h2>Lines added per save</h2>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--high)"></i>Fast and large</span>
+        <span><i class="swatch" style="background:var(--review)"></i>Worth a look</span>
+        <span><i class="swatch" style="background:var(--normal)"></i>Normal</span>
+      </div>
+    </div>
+    <div class="chart-box" id="chartBox"><svg id="chart" role="img" aria-label="Bar chart of lines added in each saved version"></svg></div>
+    <div class="tip" id="tip">Select a bar to list only that version.</div>
+  </section>
+
+  <section class="panel" aria-label="Changes">
+    <div class="panel-head">
+      <h2 id="tableTitle">Flagged changes</h2>
+      <div class="chip-row" id="chips"></div>
+    </div>
+    <div class="table-box">
+      <table>
+        <thead>
+          <tr>
+            <th>Level</th><th>Script</th><th class="num">Version</th><th>Saved</th>
+            <th class="num">Change</th><th class="num">Largest block</th><th class="num">Lines/min</th><th>Why</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="notes">
+    <span class="label">Reading the flags</span>
+    <p><strong>Large block</strong>: many new lines arrived together in one save. Common for pasted resources, moved scripts, or code written in another editor.</p>
+    <p><strong>Lines per minute</strong>: new lines divided by the time since the previous save. People rarely keep up more than a few lines a minute.</p>
+    <p><strong>Line-by-line rewrite</strong>: roughly as many lines removed as added, in small pieces. A formatter, a mass rename, and an AI refactor all look like this, so compare the before and after code.</p>
+    <p>With Collaborative Editing, drafts can sit for hours before being committed, which makes a slow change look fast. Talk to the developer before drawing a conclusion.</p>
+  </section>
+</div>
+
+<script>
+const DefaultPatterns = "Packages, PlayerModule, BuiltInCommands, BuiltInTypes, CmdrClient, Cmdr.Shared, Cmdr.CreateGui, Cmdr.Initialize, .Animate [, .Health [, .idle [, RobloxLSP";
+const StorageKey = "ScriptPaceReview.Settings";
+
+const State = {
+  Report: [],
+  Version: null,
+};
+
+const Elements = {};
+for (const Id of ["fileInput","openFile","drop","sourceLabel","error","summary","hideImport","hidePackages","hideRemoved","flaggedOnly","patterns","blockThreshold","rateThreshold","search","author","chart","chartBox","tip","rows","chips","tableTitle"]) {
+  Elements[Id] = document.getElementById(Id);
+}
+
+function LoadSettings() {
+  let Saved = null;
+  try { Saved = JSON.parse(localStorage.getItem(StorageKey) || "null"); } catch (Error) { Saved = null; }
+  Elements.patterns.value = Saved?.Patterns ?? DefaultPatterns;
+  if (Saved?.BlockThreshold) Elements.blockThreshold.value = Saved.BlockThreshold;
+  if (Saved?.RateThreshold) Elements.rateThreshold.value = Saved.RateThreshold;
+}
+
+function SaveSettings() {
+  try {
+    localStorage.setItem(StorageKey, JSON.stringify({
+      Patterns: Elements.patterns.value,
+      BlockThreshold: Elements.blockThreshold.value,
+      RateThreshold: Elements.rateThreshold.value,
+    }));
+  } catch (Error) {}
+}
+
+function SplitPath(Path) {
+  const Match = /^(.*) \[(\w+)\]$/.exec(Path) || [null, Path, ""];
+  const FullName = Match[1];
+  const Dot = FullName.lastIndexOf(".");
+  return {
+    Name: Dot >= 0 ? FullName.slice(Dot + 1) : FullName,
+    Parent: Dot >= 0 ? FullName.slice(0, Dot) : "",
+    ClassName: Match[2],
+  };
+}
+
+function Classify(Change, BlockThreshold, RateThreshold) {
+  const Stats = Change.Statistics || {};
+  const Added = Stats.LinesAdded || 0;
+  const Removed = Stats.LinesRemoved || 0;
+  const Block = Stats.LargestAddedBlock || 0;
+  const Rate = Change.LinesAddedPerMinute;
+  const Reasons = [];
+  if (Change.Status === "Removed") return { Level: "normal", Reasons };
+  const IsLargeBlock = Block >= BlockThreshold;
+  const IsFast = Rate != null && Rate >= RateThreshold && Added >= 20;
+  const IsRewrite = Change.Status === "Modified" && Added >= 100 && Removed >= Added * 0.6 && Removed <= Added * 1.6 && Block < 50;
+  if (IsLargeBlock) Reasons.push(`${Block}-line block`);
+  if (IsFast) Reasons.push(`${Rate} lines/min`);
+  if (IsRewrite) Reasons.push("Line-by-line rewrite");
+  const Level = (IsLargeBlock && IsFast) ? "high" : Reasons.length ? "review" : "normal";
+  return { Level, Reasons };
+}
+
+const LevelRank = { high: 2, review: 1, normal: 0 };
+const LevelLabel = { high: "Fast and large", review: "Worth a look", normal: "Normal" };
+
+function FormatTime(Value) {
+  const Time = Date.parse(Value || "");
+  if (isNaN(Time)) return "Unknown";
+  return new Date(Time).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function Escape(Text) {
+  return String(Text).replace(/[&<>"']/g, Character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[Character]));
+}
+
+function SetReport(Report, Label) {
+  if (!Array.isArray(Report) || !Report.every(Change => Change && typeof Change.Path === "string" && Change.Statistics)) {
+    ShowError("That file isn't a VersionDiff report. Open the ScriptChanges.json the script wrote.");
+    return;
+  }
+  Elements.error.hidden = true;
+  State.Report = Report;
+  State.Version = null;
+  Elements.sourceLabel.textContent = Label;
+  const Authors = [...new Set(Report.map(Change => Change.SavedBy).filter(Boolean))].sort();
+  Elements.author.innerHTML = `<option value="">Anyone</option>` + Authors.map(Author => `<option value="${Escape(Author)}">User ${Escape(Author)}</option>`).join("");
+  Render();
+}
+
+function ShowError(Message) {
+  Elements.error.textContent = Message;
+  Elements.error.hidden = false;
+}
+
+function ReadText(Text, Label) {
+  let Parsed;
+  try { Parsed = JSON.parse(Text); } catch (Error) { ShowError("That text isn't valid JSON. Paste the whole ScriptChanges.json file."); return; }
+  SetReport(Parsed, Label);
+}
+
+function ReadFile(File) {
+  const Reader = new FileReader();
+  Reader.onload = () => ReadText(String(Reader.result), File.name);
+  Reader.onerror = () => ShowError("The file couldn't be read. Try opening it again.");
+  Reader.readAsText(File);
+}
+
+function GetVisible() {
+  const BlockThreshold = Number(Elements.blockThreshold.value) || 80;
+  const RateThreshold = Number(Elements.rateThreshold.value) || 20;
+  const Patterns = Elements.patterns.value.split(",").map(Part => Part.trim()).filter(Boolean);
+  const AddedPerVersion = new Map();
+  for (const Change of State.Report) {
+    if (Change.Status === "Added") AddedPerVersion.set(Change.Version, (AddedPerVersion.get(Change.Version) || 0) + 1);
+  }
+  const Query = Elements.search.value.trim().toLowerCase();
+  const Author = Elements.author.value;
+
+  const Base = [];
+  for (const Change of State.Report) {
+    if (Elements.hideImport.checked && (AddedPerVersion.get(Change.Version) || 0) >= 40) continue;
+    if (Elements.hidePackages.checked && Patterns.some(Pattern => Change.Path.includes(Pattern))) continue;
+    if (Elements.hideRemoved.checked && Change.Status === "Removed") continue;
+    if (Query && !Change.Path.toLowerCase().includes(Query)) continue;
+    if (Author && Change.SavedBy !== Author) continue;
+    Base.push({ ...Change, ...Classify(Change, BlockThreshold, RateThreshold) });
+  }
+  return Base;
+}
+
+function RenderSummary(Base) {
+  const Versions = new Set(Base.map(Change => Change.Version));
+  const Scripts = new Set(Base.map(Change => Change.Path));
+  const High = Base.filter(Change => Change.Level === "high").length;
+  const Review = Base.filter(Change => Change.Level === "review").length;
+  const Lines = Base.reduce((Total, Change) => Total + (Change.Statistics.LinesAdded || 0), 0);
+  Elements.summary.innerHTML = [
+    ["Saves with changes", Versions.size, ""],
+    ["Scripts touched", Scripts.size, ""],
+    ["Lines added", Lines.toLocaleString(), ""],
+    ["Fast and large", High, "high"],
+    ["Worth a look", Review, "review"],
+  ].map(([Label, Value, Kind]) => `<div class="stat ${Kind}"><span class="label">${Label}</span><span class="value">${Value}</span></div>`).join("");
+}
+
+function NiceStep(Max) {
+  const Raw = Max / 4;
+  const Power = Math.pow(10, Math.floor(Math.log10(Raw || 1)));
+  const Scaled = Raw / Power;
+  const Step = Scaled <= 1 ? 1 : Scaled <= 2 ? 2 : Scaled <= 5 ? 5 : 10;
+  return Step * Power;
+}
+
+function RenderChart(Base) {
+  const ByVersion = new Map();
+  for (const Change of Base) {
+    const Entry = ByVersion.get(Change.Version) || { Version: Change.Version, Lines: 0, Level: "normal", SavedAt: Change.SavedAt, Count: 0 };
+    Entry.Lines += Change.Statistics.LinesAdded || 0;
+    Entry.Count += 1;
+    if (LevelRank[Change.Level] > LevelRank[Entry.Level]) Entry.Level = Change.Level;
+    ByVersion.set(Change.Version, Entry);
+  }
+  const Entries = [...ByVersion.values()].sort((A, B) => A.Version - B.Version);
+  const Svg = Elements.chart;
+  const Height = 220, Left = 48, Right = 12, Top = 12, Bottom = 30;
+  const BoxWidth = Elements.chartBox.clientWidth || 800;
+  const Width = Math.max(BoxWidth, Left + Right + Entries.length * 9);
+  Svg.setAttribute("width", Width);
+  Svg.setAttribute("height", Height);
+  Svg.setAttribute("viewBox", `0 0 ${Width} ${Height}`);
+  if (!Entries.length) {
+    Svg.innerHTML = `<text x="${Width / 2}" y="${Height / 2}" text-anchor="middle">${State.Report.length ? "No changes match these filters." : "Open a report to see activity over time."}</text>`;
+    return;
+  }
+  const MaxLines = Math.max(...Entries.map(Entry => Entry.Lines), 1);
+  const Step = NiceStep(MaxLines);
+  const AxisMax = Math.ceil(MaxLines / Step) * Step;
+  const PlotHeight = Height - Top - Bottom;
+  const PlotWidth = Width - Left - Right;
+  const Slot = PlotWidth / Entries.length;
+  const BarWidth = Math.max(3, Math.min(28, Slot * 0.7));
+  const ScaleY = Value => Top + PlotHeight - (Value / AxisMax) * PlotHeight;
+  const Colors = { high: "var(--high)", review: "var(--review)", normal: "var(--normal)" };
+
+  let Markup = "";
+  for (let Value = 0; Value <= AxisMax; Value += Step) {
+    const Y = ScaleY(Value);
+    Markup += `<line class="grid" x1="${Left}" x2="${Width - Right}" y1="${Y}" y2="${Y}"></line>`;
+    Markup += `<text x="${Left - 8}" y="${Y + 4}" text-anchor="end">${Value.toLocaleString()}</text>`;
+  }
+  const LabelEvery = Math.max(1, Math.ceil(36 / Slot));
+  Entries.forEach((Entry, Index) => {
+    const X = Left + Index * Slot + (Slot - BarWidth) / 2;
+    const Y = ScaleY(Entry.Lines);
+    const BarHeight = Math.max(1, Top + PlotHeight - Y);
+    const Active = State.Version === Entry.Version ? " active" : "";
+    Markup += `<g class="bar${Active}" tabindex="0" role="button" data-version="${Entry.Version}" aria-label="Version ${Entry.Version}, ${Entry.Lines} lines added">`;
+    Markup += `<rect x="${Left + Index * Slot}" y="${Top}" width="${Slot}" height="${PlotHeight}" fill="transparent"></rect>`;
+    Markup += `<rect x="${X}" y="${Top + PlotHeight - BarHeight}" width="${BarWidth}" height="${BarHeight}" rx="2" fill="${Colors[Entry.Level]}"></rect>`;
+    Markup += `</g>`;
+    if (Index % LabelEvery === 0) {
+      Markup += `<text x="${X + BarWidth / 2}" y="${Height - 10}" text-anchor="middle">v${Entry.Version}</text>`;
+    }
+  });
+  Svg.innerHTML = Markup;
+  Svg.querySelectorAll(".bar").forEach(Bar => {
+    const Entry = ByVersion.get(Number(Bar.dataset.version));
+    const Describe = () => {
+      Elements.tip.textContent = `Version ${Entry.Version} · ${FormatTime(Entry.SavedAt)} · ${Entry.Lines.toLocaleString()} lines added across ${Entry.Count} script${Entry.Count === 1 ? "" : "s"} · ${LevelLabel[Entry.Level]}`;
+    };
+    const Select = () => {
+      State.Version = State.Version === Entry.Version ? null : Entry.Version;
+      Render();
+    };
+    Bar.addEventListener("mouseenter", Describe);
+    Bar.addEventListener("focus", Describe);
+    Bar.addEventListener("click", Select);
+    Bar.addEventListener("keydown", Event => { if (Event.key === "Enter" || Event.key === " ") { Event.preventDefault(); Select(); } });
+  });
+}
+
+function RenderTable(Base) {
+  let Rows = Base;
+  if (State.Version != null) Rows = Rows.filter(Change => Change.Version === State.Version);
+  const FlaggedOnly = Elements.flaggedOnly.checked && State.Version == null && !Elements.search.value.trim();
+  if (FlaggedOnly) Rows = Rows.filter(Change => Change.Level !== "normal");
+  Rows = [...Rows].sort((A, B) =>
+    (LevelRank[B.Level] - LevelRank[A.Level]) ||
+    ((B.Statistics.LargestAddedBlock || 0) - (A.Statistics.LargestAddedBlock || 0)) ||
+    (A.Version - B.Version));
+  if (Elements.search.value.trim() && State.Version == null) Rows.sort((A, B) => A.Version - B.Version);
+
+  Elements.tableTitle.textContent = State.Version != null ? `Changes in version ${State.Version}` : Elements.search.value.trim() ? "Script history" : FlaggedOnly ? "Flagged changes" : "All changes";
+
+  const Chips = [];
+  if (State.Version != null) Chips.push(`<span class="chip">Version ${State.Version}<button type="button" data-clear="version" aria-label="Clear version filter">×</button></span>`);
+  if (Elements.search.value.trim()) Chips.push(`<span class="chip">${Escape(Elements.search.value.trim())}<button type="button" data-clear="search" aria-label="Clear search">×</button></span>`);
+  Elements.chips.innerHTML = Chips.join("");
+
+  if (!Rows.length) {
+    Elements.rows.innerHTML = `<tr><td colspan="8" class="empty">${State.Report.length ? "Nothing flagged with these filters. Lower the thresholds or show unflagged changes." : "No report loaded yet. Click Open report, or drop ScriptChanges.json onto the page."}</td></tr>`;
+    return;
+  }
+  Elements.rows.innerHTML = Rows.map(Change => {
+    const Parts = SplitPath(Change.Path);
+    const Stats = Change.Statistics;
+    const Rate = Change.LinesAddedPerMinute;
+    const Reasons = Change.Reasons.length ? Change.Reasons.map(Reason => `<span class="reason">${Escape(Reason)}</span>`).join("") : `<span class="hint">${Escape(Change.Status)}</span>`;
+    return `<tr class="lvl-${Change.Level}">
+      <td><span class="pill ${Change.Level}">${LevelLabel[Change.Level]}</span></td>
+      <td><button type="button" class="script-name" data-path="${Escape(Change.Path)}" title="Show this script's history">${Escape(Parts.Name)}</button><span class="script-path">${Escape(Parts.Parent)} · ${Escape(Parts.ClassName)}</span></td>
+      <td class="num mono">${Change.Version}</td>
+      <td class="mono">${Escape(FormatTime(Change.SavedAt))}<span class="script-path">${Change.MinutesSincePreviousSave != null ? `${Change.MinutesSincePreviousSave} min after last save` : ""}</span></td>
+      <td class="num mono"><span class="add">+${Stats.LinesAdded || 0}</span> <span class="rem">−${Stats.LinesRemoved || 0}</span></td>
+      <td class="num mono">${Stats.LargestAddedBlock || 0}</td>
+      <td class="num mono">${Rate != null ? Rate : "–"}</td>
+      <td><div class="reasons">${Reasons}</div></td>
+    </tr>`;
+  }).join("");
+}
+
+function Render() {
+  const Base = GetVisible();
+  RenderSummary(Base);
+  RenderChart(Base);
+  RenderTable(Base);
+}
+
+Elements.openFile.addEventListener("click", () => Elements.fileInput.click());
+Elements.fileInput.addEventListener("change", () => { if (Elements.fileInput.files[0]) ReadFile(Elements.fileInput.files[0]); Elements.fileInput.value = ""; });
+for (const Id of ["hideImport", "hidePackages", "hideRemoved", "flaggedOnly", "author"]) Elements[Id].addEventListener("change", Render);
+for (const Id of ["patterns", "blockThreshold", "rateThreshold", "search"]) Elements[Id].addEventListener("input", () => { SaveSettings(); Render(); });
+
+Elements.chips.addEventListener("click", Event => {
+  const Target = Event.target.closest("[data-clear]");
+  if (!Target) return;
+  if (Target.dataset.clear === "version") State.Version = null;
+  if (Target.dataset.clear === "search") Elements.search.value = "";
+  Render();
+});
+Elements.rows.addEventListener("click", Event => {
+  const Target = Event.target.closest(".script-name");
+  if (!Target) return;
+  Elements.search.value = Target.dataset.path;
+  State.Version = null;
+  Render();
+  Elements.search.scrollIntoView({ block: "center", behavior: "smooth" });
+});
+
+["dragenter", "dragover"].forEach(Name => document.addEventListener(Name, Event => { Event.preventDefault(); Elements.drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(Name => document.addEventListener(Name, Event => { Event.preventDefault(); if (Name === "drop" || Event.target === Elements.drop) Elements.drop.classList.remove("over"); }));
+document.addEventListener("drop", Event => { const File = Event.dataTransfer?.files?.[0]; if (File) ReadFile(File); });
+document.addEventListener("paste", Event => {
+  if (Event.target.closest("input, textarea")) return;
+  const Text = Event.clipboardData?.getData("text");
+  if (Text && Text.trim().startsWith("[")) { Event.preventDefault(); ReadText(Text, "Pasted report"); }
+});
+
+let ResizeTimer;
+window.addEventListener("resize", () => { clearTimeout(ResizeTimer); ResizeTimer = setTimeout(() => RenderChart(GetVisible()), 120); });
+
+LoadSettings();
+Elements.sourceLabel.textContent = "No report loaded";
+Elements.author.innerHTML = `<option value="">Anyone</option>`;
+Render();
+</script>
